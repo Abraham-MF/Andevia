@@ -1,0 +1,41 @@
+services:
+
+  # ── Base de datos MySQL 8 ───────────────────────────────────────────────────
+  db:
+    image: mysql:8
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: andevia
+      MYSQL_USER: andevia
+      MYSQL_PASSWORD: andevia
+    ports:
+      - "3307:3306"          # 3307 en el host → acceso local con Prisma Studio
+    volumes:
+      - mysqldata:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "andevia", "-pandevia"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  # ── Aplicación Next.js ──────────────────────────────────────────────────────
+  app:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: production
+      # URL interna entre contenedores (db = nombre del servicio)
+      DATABASE_URL: mysql://andevia:andevia@db:3306/andevia
+      # Auth — cambia AUTH_SECRET en producción real
+      AUTH_SECRET: ${AUTH_SECRET:-andevia-dev-secret-change-in-production}
+      AUTH_URL: ${AUTH_URL:-http://localhost:3000}
+      NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  mysqldata:
